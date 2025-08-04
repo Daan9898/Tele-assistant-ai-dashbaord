@@ -1,7 +1,10 @@
 [build]
-  command = "npm run dev"
+  command = "npm run build"
+  publish = ".netlify/output"
   functions = "netlify/functions"
-  publish = "public" # or "dist" or "out" based on your project
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 [dev]
   functions = "netlify/functions"
