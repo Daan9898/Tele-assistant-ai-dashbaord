@@ -13,6 +13,13 @@ import { TotalCustomers } from '@/components/dashboard/overview/total-customers'
 import { TotalProfit } from '@/components/dashboard/overview/total-profit';
 import { Traffic } from '@/components/dashboard/overview/traffic';
 
+import { MinutesUsedCard } from '@/components/dashboard/overview/minutes-used';
+import { TotalCallsCard } from '@/components/dashboard/overview/total-calls';
+import { AverageDurationCard } from '@/components/dashboard/overview/average-duration';
+import { PlanUsageCard } from '@/components/dashboard/overview/plan-usage';
+import { CallDurationChart } from '@/components/dashboard/overview/call-duration';
+import { CallVolumeLineChart } from '@/components/dashboard/overview/monthly-calls';
+
 export const metadata = { title: `Overview | Dashboard | ${config.site.name}` } satisfies Metadata;
 
 export default function Page(): React.JSX.Element {
@@ -25,7 +32,7 @@ export default function Page(): React.JSX.Element {
           xs: 12,
         }}
       >
-        <Budget diff={12} trend="up" sx={{ height: '100%' }} value="$24k" />
+        <MinutesUsedCard />
       </Grid>
       <Grid
         size={{
@@ -34,7 +41,7 @@ export default function Page(): React.JSX.Element {
           xs: 12,
         }}
       >
-        <TotalCustomers diff={16} trend="down" sx={{ height: '100%' }} value="1.6k" />
+        <TotalCallsCard />
       </Grid>
       <Grid
         size={{
@@ -43,7 +50,7 @@ export default function Page(): React.JSX.Element {
           xs: 12,
         }}
       >
-        <TasksProgress sx={{ height: '100%' }} value={75.5} />
+        <PlanUsageCard />
       </Grid>
       <Grid
         size={{
@@ -52,7 +59,7 @@ export default function Page(): React.JSX.Element {
           xs: 12,
         }}
       >
-        <TotalProfit sx={{ height: '100%' }} value="$15k" />
+        <AverageDurationCard />
       </Grid>
       <Grid
         size={{
@@ -60,22 +67,16 @@ export default function Page(): React.JSX.Element {
           xs: 12,
         }}
       >
-        <Sales
-          chartSeries={[
-            { name: 'This year', data: [18, 16, 5, 8, 3, 14, 14, 16, 17, 19, 18, 20] },
-            { name: 'Last year', data: [12, 11, 4, 6, 2, 9, 9, 10, 11, 12, 13, 13] },
-          ]}
-          sx={{ height: '100%' }}
-        />
+        <CallVolumeLineChart />
       </Grid>
       <Grid
-        size={{
+         size={{
           lg: 4,
           md: 6,
           xs: 12,
         }}
       >
-        <Traffic chartSeries={[63, 15, 22]} labels={['Desktop', 'Tablet', 'Phone']} sx={{ height: '100%' }} />
+        <CallDurationChart/>
       </Grid>
       <Grid
         size={{
