@@ -1,8 +1,13 @@
 'use client';
 
 import * as React from 'react';
+import type { Metadata } from 'next';
+
+import { config } from '@/config';
 import { Stack, Typography, CircularProgress, Card } from '@mui/material';
 import { ConversationsTable, ConversationRow } from '@/components/dashboard/conversations/conversations-table';
+
+export const metadata = { title: `Overview | Dashboard | ${config.site.name}` } satisfies Metadata;
 
 type RawConversation = {
   id?: string;
