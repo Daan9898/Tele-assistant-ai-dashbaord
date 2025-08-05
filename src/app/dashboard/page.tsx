@@ -2,7 +2,7 @@ import * as React from 'react';
 import type { Metadata } from 'next';
 import Grid from '@mui/material/Grid';
 import dayjs from 'dayjs';
-
+  
 import { config } from '@/config';
 import { LatestOrders } from '@/components/dashboard/overview/latest-orders';
 import { LatestProducts } from '@/components/dashboard/overview/latest-products';
