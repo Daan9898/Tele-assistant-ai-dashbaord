@@ -55,8 +55,8 @@ export function MinutesUsedCard(): React.JSX.Element {
         } else {
           setStatusColor('success');
         }
-      } catch (err) {
-        console.error('Error fetching usage data:', err);
+      } catch (error) {
+        console.error('Error fetching usage data:', error);
       }
     };
 
@@ -64,6 +64,12 @@ export function MinutesUsedCard(): React.JSX.Element {
   }, []);
 
   const overageCost = extraMinutes * pricePerExtraMinute;
+
+  // Precompute display values to avoid negated conditions
+  const usageDisplay = minutesThisMonth == null ? '...' : `${Math.min(minutesThisMonth, planLimit)} / ${planLimit} min`;
+  const usageCaption = minutesThisMonth == null
+    ? 'Loading...'
+    : `${Math.min(minutesThisMonth, planLimit)} / ${planLimit} min used`;
 
   return (
     <Card sx={{ minHeight: '220px' }}>
@@ -82,9 +88,7 @@ export function MinutesUsedCard(): React.JSX.Element {
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
             <Stack spacing={1}>
               <Typography variant="h4">
-                {minutesThisMonth !== null
-                  ? `${Math.min(minutesThisMonth, planLimit)} / ${planLimit} min`
-                  : '...'}
+                {usageDisplay}
               </Typography>
               {extraMinutes > 0 && (
                 <Typography variant="body2" color="error">
@@ -115,9 +119,7 @@ export function MinutesUsedCard(): React.JSX.Element {
                 Plan limit: {planLimit} min
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {minutesThisMonth !== null
-                  ? `${Math.min(minutesThisMonth, planLimit)} / ${planLimit} min used`
-                  : 'Loading...'}
+                {usageCaption}
               </Typography>
             </Stack>
           </Box>

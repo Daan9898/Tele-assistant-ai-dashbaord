@@ -66,8 +66,8 @@ export function ConversationsTable({
         const audioBlob = await audioRes.blob();
         const audioObjectUrl = URL.createObjectURL(audioBlob);
         setAudioUrl(audioObjectUrl);
-    } catch (err) {
-        console.error('Error loading conversation:', err);
+    } catch (error) {
+        console.error('Error loading conversation:', error);
         setTranscript('Failed to load conversation details.');
     }
 

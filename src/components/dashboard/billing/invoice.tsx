@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
 import CardHeader from '@mui/material/CardHeader';
 import Divider from '@mui/material/Divider';
 import Table from '@mui/material/Table';
@@ -13,7 +12,6 @@ import TableRow from '@mui/material/TableRow';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
 import Pagination from '@mui/material/Pagination';
 import { ArrowRightIcon } from '@phosphor-icons/react/dist/ssr';
 import dayjs from 'dayjs';
@@ -27,15 +25,9 @@ const invoices = [
   { id: 'INV-001', date: 'Mar 1, 2025', plan: 'Basic', amount: 388.64, status: 'Paid' },
 ];
 
-const pricingExamples = [
-  { minutes: 600, price: 388.64, plan: 'Basic' },
-  { minutes: 1100, price: 570.84, plan: 'Pro' },
-  { minutes: 3600, price: 1731.84, plan: 'Enterprise' },
-];
+
 
 export function InvoiceHistoryCard(): React.JSX.Element {
-  const total = invoices.reduce((sum, inv) => sum + inv.amount, 0);
-
   return (
     <Card>
       <CardHeader

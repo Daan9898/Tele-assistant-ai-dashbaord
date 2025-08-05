@@ -36,9 +36,9 @@
     "dayjs": "1.11.13",
     "gh": "^2.8.9",
     "next": "15.3.3",
-    "react": "19.1.0",
+    "react": "^18.2.0",
     "react-apexcharts": "1.7.0",
-    "react-dom": "19.1.0",
+    "react-dom": "^18.2.0",
     "react-hook-form": "7.57.0",
     "zod": "3.25.57"
   },

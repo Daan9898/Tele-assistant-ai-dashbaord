@@ -59,11 +59,7 @@ export function PlanUsageCard(): React.JSX.Element {
     fetchUsage();
   }, []);
 
-  const avatarBgColor = {
-    success: 'var(--mui-palette-success-main)',
-    warning: 'var(--mui-palette-warning-main)',
-    error: 'var(--mui-palette-error-main)',
-  }[color];
+
 
   return (
     <Card sx={{ minHeight: '160px' }}>

@@ -24,31 +24,24 @@ export function TotalCallsCard(): React.JSX.Element {
 
   React.useEffect(() => {
     const now = new Date();
-
     const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime() / 1000;
     const endOfThisMonth = Math.floor(Date.now() / 1000);
-
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime() / 1000;
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).getTime() / 1000;
 
     const fetchData = async () => {
       try {
-        const resThisMonth = await axios.get<ConversationsResponse>('/.netlify/functions/getConversations', {
-          params: {
-            start: Math.floor(startOfThisMonth),
-            end: Math.floor(endOfThisMonth),
-          },
-        });
+        const [{ data: thisData }, { data: lastData }] = await Promise.all([
+          axios.get<ConversationsResponse>('/.netlify/functions/getConversations', {
+            params: { start: Math.floor(startOfThisMonth), end: Math.floor(endOfThisMonth) },
+          }),
+          axios.get<ConversationsResponse>('/.netlify/functions/getConversations', {
+            params: { start: Math.floor(startOfLastMonth), end: Math.floor(endOfLastMonth) },
+          }),
+        ]);
 
-        const resLastMonth = await axios.get<ConversationsResponse>('/.netlify/functions/getConversations', {
-          params: {
-            start: Math.floor(startOfLastMonth),
-            end: Math.floor(endOfLastMonth),
-          },
-        });
-
-        const thisMonth = resThisMonth.data?.totalCalls || 0;
-        const lastMonth = resLastMonth.data?.totalCalls || 0;
+        const thisMonth = thisData.totalCalls ?? 0;
+        const lastMonth = lastData.totalCalls ?? 0;
 
         setCallsThisMonth(thisMonth);
 
@@ -66,6 +59,22 @@ export function TotalCallsCard(): React.JSX.Element {
   const TrendIcon = trend === 'up' ? ArrowUpIcon : ArrowDownIcon;
   const trendColor = trend === 'up' ? 'var(--mui-palette-success-main)' : 'var(--mui-palette-error-main)';
 
+  // Precompute display
+  const displayCalls = callsThisMonth == null ? '...' : `${callsThisMonth}`;
+  const trendSection = diff == null ? null : (
+    <Stack direction="row" alignItems="center" spacing={2}>
+      <Stack direction="row" alignItems="center" spacing={0.5}>
+        <TrendIcon color={trendColor} fontSize="var(--icon-fontSize-md)" />
+        <Typography color={trendColor} variant="body2">
+          {Math.abs(diff)}%
+        </Typography>
+      </Stack>
+      <Typography color="text.secondary" variant="caption">
+        Since last month
+      </Typography>
+    </Stack>
+  );
+
   return (
     <Card>
       <CardContent>
@@ -75,27 +84,13 @@ export function TotalCallsCard(): React.JSX.Element {
               <Typography color="text.secondary" variant="overline">
                 Total Calls
               </Typography>
-              <Typography variant="h4">
-                {callsThisMonth !== null ? `${callsThisMonth}` : '...'}
-              </Typography>
+              <Typography variant="h4">{displayCalls}</Typography>
             </Stack>
-            <Avatar sx={{ backgroundColor: 'var(--mui-palette-success-main)', height: '56px', width: '56px' }}>
+            <Avatar sx={{ backgroundColor: 'var(--mui-palette-success-main)', height: 56, width: 56 }}>
               <PhoneIcon fontSize="var(--icon-fontSize-lg)" />
             </Avatar>
           </Stack>
-          {diff !== null && (
-            <Stack direction="row" alignItems="center" spacing={2}>
-              <Stack direction="row" alignItems="center" spacing={0.5}>
-                <TrendIcon color={trendColor} fontSize="var(--icon-fontSize-md)" />
-                <Typography color={trendColor} variant="body2">
-                  {Math.abs(diff)}%
-                </Typography>
-              </Stack>
-              <Typography color="text.secondary" variant="caption">
-                Since last month
-              </Typography>
-            </Stack>
-          )}
+          {trendSection}
         </Stack>
       </CardContent>
     </Card>

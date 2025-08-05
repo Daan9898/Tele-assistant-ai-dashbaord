@@ -10,68 +10,72 @@ import { useTheme } from '@mui/material/styles';
 import type { ApexOptions } from 'apexcharts';
 import { Chart } from '@/components/core/chart';
 
+// Define the shape of calls per day response
+interface CallsPerDayResponse {
+  callsPerDay: Record<string, number>;
+}
+
 export function CallVolumeLineChart(): React.JSX.Element {
   const theme = useTheme();
-  const [series, setSeries] = React.useState<any[]>([]);
+  const [series, setSeries] = React.useState<{ name: string; data: number[] }[]>([]);
   const [categories, setCategories] = React.useState<string[]>([]);
 
   React.useEffect(() => {
-    const now = new Date();
-
-    const startOfThisMonth = startOfMonth(now);
-    const endOfThisMonth = endOfMonth(now);
-    const startOfLastMonth = startOfMonth(subMonths(now, 1));
-    const endOfLastMonth = endOfMonth(subMonths(now, 1));
-
-    const fetchCalls = async (start: Date, end: Date) => {
-      const res = await axios.get('/.netlify/functions/getConversations', {
+    async function fetchCalls(start: Date, end: Date): Promise<Record<string, number>> {
+      const response = await axios.get<CallsPerDayResponse>('/.netlify/functions/getConversations', {
         params: {
           start: Math.floor(start.getTime() / 1000),
           end: Math.floor(end.getTime() / 1000),
         },
       });
+      return response.data.callsPerDay;
+    }
 
-      return res.data.callsPerDay || {};
-    };
+    async function buildChartData() {
+      const now = new Date();
+      const startThis = startOfMonth(now);
+      const endThis = endOfMonth(now);
+      const startLast = startOfMonth(subMonths(now, 1));
+      const endLast = endOfMonth(subMonths(now, 1));
 
-    const buildChart = async () => {
       const [thisMonthData, lastMonthData] = await Promise.all([
-        fetchCalls(startOfThisMonth, endOfThisMonth),
-        fetchCalls(startOfLastMonth, endOfLastMonth),
+        fetchCalls(startThis, endThis),
+        fetchCalls(startLast, endLast),
       ]);
 
-      const thisMonthDays = eachDayOfInterval({ start: startOfThisMonth, end: endOfThisMonth });
-      const lastMonthDays = eachDayOfInterval({ start: startOfLastMonth, end: endOfLastMonth });
+      const thisDays = eachDayOfInterval({ start: startThis, end: endThis });
+      const lastDays = eachDayOfInterval({ start: startLast, end: endLast });
 
-      const labels = thisMonthDays.map((date, i) => {
+      const labels = thisDays.map((date, index) => {
         const isSunday = date.getDay() === 0;
-        if (!isSunday) return '';
-        
-        const day = format(date, 'dd');
-        const label = i === 0 ? format(date, 'dd MMM') : day;
-        return label;
+        if (!isSunday) {
+          return '';
+        }
+        return index === 0 ? format(date, 'dd MMM') : format(date, 'dd');
       });
 
-      const thisMonthSeries = thisMonthDays.map(date => {
+      const thisSeriesData = thisDays.map((date) => {
         const key = format(date, 'yyyy-MM-dd');
-        return thisMonthData[key] || 0;
+        return thisMonthData[key] ?? 0;
       });
 
-      const lastMonthSeries = thisMonthDays.map((_, i) => {
-        const match = lastMonthDays[i];
-        if (!match) return 0;
+      const lastSeriesData = thisDays.map((_, idx) => {
+        const match = lastDays[idx];
+        if (!match) {
+          return 0;
+        }
         const key = format(match, 'yyyy-MM-dd');
-        return lastMonthData[key] || 0;
+        return lastMonthData[key] ?? 0;
       });
 
       setCategories(labels);
       setSeries([
-        { name: 'This Month', data: thisMonthSeries },
-        { name: 'Last Month', data: lastMonthSeries },
+        { name: 'This Month', data: thisSeriesData },
+        { name: 'Last Month', data: lastSeriesData },
       ]);
-    };
+    }
 
-    buildChart();
+    buildChartData();
   }, []);
 
   const chartOptions: ApexOptions = {
@@ -93,20 +97,20 @@ export function CallVolumeLineChart(): React.JSX.Element {
     },
     yaxis: {
       labels: {
-        formatter: value => `${value}`,
+        formatter: (value) => `${value}`,
         style: { colors: theme.palette.text.secondary },
       },
     },
     tooltip: {
       x: { format: 'MMM dd' },
-      y: { formatter: value => `${value} calls` },
+      y: { formatter: (value) => `${value} calls` },
     },
     legend: {
       position: 'top',
       horizontalAlign: 'left',
       fontSize: '14px',
     },
-    theme: { mode: theme.palette.mode },
+    theme: { mode: theme.palette.mode as 'light' | 'dark' },
   };
 
   return (

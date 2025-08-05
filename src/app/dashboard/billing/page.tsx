@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
 
 import { config } from '@/config';
 import { MinutesUsedCard } from '@/components/dashboard/billing/minutes-used';

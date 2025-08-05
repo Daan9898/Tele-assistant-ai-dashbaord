@@ -4,6 +4,18 @@ import * as React from 'react';
 import { Stack, Typography, CircularProgress, Card } from '@mui/material';
 import { ConversationsTable, ConversationRow } from '@/components/dashboard/conversations/conversations-table';
 
+type RawConversation = {
+  id?: string;
+  conversation_id?: string;
+  date?: string;
+  duration?: number;
+  call_duration_secs?: number;
+  messages?: number;
+  message_count?: number;
+  evaluation?: string;
+  evaluation_result?: string;
+};
+
 export default function Page(): React.JSX.Element {
   const [rows, setRows] = React.useState<ConversationRow[]>([]);
   const [page, setPage] = React.useState(0);
@@ -16,29 +28,30 @@ export default function Page(): React.JSX.Element {
         const now = Math.floor(Date.now() / 1000);
         const oneMonthAgo = now - 30 * 24 * 60 * 60;
 
-        const res = await fetch(`/.netlify/functions/listConversations?start=${oneMonthAgo}&end=${now}`);
+        const res = await fetch(
+          `/.netlify/functions/listConversations?start=${oneMonthAgo}&end=${now}`
+        );
         const data = await res.json();
 
-        const formatted: ConversationRow[] = data.conversations.map((c: any) => ({
-          id: c.id || c.conversation_id,
-         date: c.date
-          ? new Date(Number(c.date) * 1000).toLocaleString('en-GB', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })
-          : 'Invalid Date',
-          duration: formatDuration(c.duration || c.call_duration_secs || 0),
-          messages: c.messages || c.message_count || 0,
-          evaluation: normalizeEvaluation(c.evaluation || c.evaluation_result || 'Pending'),
-          conversationId: c.id,
+        const formatted: ConversationRow[] = (data.conversations as RawConversation[]).map((c) => ({
+          id: c.id || c.conversation_id || 'unknown',
+          date: c.date
+            ? new Date(Number(c.date) * 1000).toLocaleString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : 'Invalid Date',
+          duration: formatDuration(c.duration ?? c.call_duration_secs ?? 0),
+          messages: c.messages ?? c.message_count ?? 0,
+          evaluation: normalizeEvaluation(c.evaluation ?? c.evaluation_result ?? 'Pending'),
         }));
 
         setRows(formatted);
-      } catch (err) {
-        console.error('Failed to load conversations:', err);
+      } catch (error) {
+        console.error('Failed to load conversations:', error);
       } finally {
         setLoading(false);
       }
@@ -49,7 +62,8 @@ export default function Page(): React.JSX.Element {
 
   const handlePageChange = (_: unknown, newPage: number) => setPage(newPage);
   const handleRowsPerPageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
+    // use Number.parseInt instead of parseInt
+    setRowsPerPage(Number.parseInt(event.target.value, 10));
     setPage(0);
   };
 
@@ -88,7 +102,7 @@ function formatDuration(seconds: number): string {
 }
 
 function normalizeEvaluation(value: string): 'Successful' | 'Failed' | 'Pending' {
-  const val = value?.toLowerCase?.();
+  const val = value.toLowerCase();
 
   if (val === 'success' || val === 'successful') return 'Successful';
   if (val === 'fail' || val === 'failed') return 'Failed';

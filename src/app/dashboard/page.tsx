@@ -4,15 +4,8 @@ import Grid from '@mui/material/Grid';
 import dayjs from 'dayjs';
 
 import { config } from '@/config';
-import { Budget } from '@/components/dashboard/overview/budget';
 import { LatestOrders } from '@/components/dashboard/overview/latest-orders';
 import { LatestProducts } from '@/components/dashboard/overview/latest-products';
-import { Sales } from '@/components/dashboard/overview/sales';
-import { TasksProgress } from '@/components/dashboard/overview/tasks-progress';
-import { TotalCustomers } from '@/components/dashboard/overview/total-customers';
-import { TotalProfit } from '@/components/dashboard/overview/total-profit';
-import { Traffic } from '@/components/dashboard/overview/traffic';
-
 import { MinutesUsedCard } from '@/components/dashboard/overview/minutes-used';
 import { TotalCallsCard } from '@/components/dashboard/overview/total-calls';
 import { AverageDurationCard } from '@/components/dashboard/overview/average-duration';

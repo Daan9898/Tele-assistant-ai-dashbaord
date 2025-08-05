@@ -24,7 +24,6 @@ export function AverageDurationCard(): React.JSX.Element {
 
   React.useEffect(() => {
     const now = new Date();
-
     const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime() / 1000;
     const endOfThisMonth = Math.floor(Date.now() / 1000);
 
@@ -47,8 +46,8 @@ export function AverageDurationCard(): React.JSX.Element {
           },
         });
 
-        const avgThis = resThisMonth.data?.avgSeconds || 0;
-        const avgLast = resLastMonth.data?.avgSeconds || 0;
+        const avgThis = resThisMonth.data.avgSeconds || 0;
+        const avgLast = resLastMonth.data.avgSeconds || 0;
 
         setAvgDuration(Number(avgThis.toFixed(1)));
 
@@ -66,6 +65,29 @@ export function AverageDurationCard(): React.JSX.Element {
   const TrendIcon = trend === 'up' ? ArrowUpIcon : ArrowDownIcon;
   const trendColor = trend === 'up' ? 'var(--mui-palette-success-main)' : 'var(--mui-palette-error-main)';
 
+  // If data isn't loaded yet, show placeholder
+  if (avgDuration == null) {
+    return (
+      <Card>
+        <CardContent>
+          <Stack spacing={3}>
+            <Stack direction="row" justifyContent="space-between" spacing={3}>
+              <Stack spacing={1}>
+                <Typography color="text.secondary" variant="overline">
+                  Avg. Duration
+                </Typography>
+                <Typography variant="h4">...</Typography>
+              </Stack>
+              <Avatar sx={{ backgroundColor: 'var(--mui-palette-primary-main)', height: 56, width: 56 }}>
+                <TimerIcon fontSize="var(--icon-fontSize-lg)" />
+              </Avatar>
+            </Stack>
+          </Stack>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardContent>
@@ -76,14 +98,15 @@ export function AverageDurationCard(): React.JSX.Element {
                 Avg. Duration
               </Typography>
               <Typography variant="h4">
-                {avgDuration !== null ? `${avgDuration}s` : '...'}
+                {avgDuration}s
               </Typography>
             </Stack>
             <Avatar sx={{ backgroundColor: 'var(--mui-palette-primary-main)', height: 56, width: 56 }}>
               <TimerIcon fontSize="var(--icon-fontSize-lg)" />
             </Avatar>
           </Stack>
-          {diff !== null && (
+
+          {diff == null ? null : (
             <Stack direction="row" alignItems="center" spacing={2}>
               <Stack direction="row" alignItems="center" spacing={0.5}>
                 <TrendIcon color={trendColor} fontSize="var(--icon-fontSize-md)" />
