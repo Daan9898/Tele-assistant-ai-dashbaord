@@ -27,64 +27,75 @@ export interface ConversationRow {
   evaluation: 'Successful' | 'Failed' | 'Pending';
 }
 
-type RawConversation = {
+// ---- Types for conversation list / details ----
+type TranscriptRole = 'user' | 'assistant' | 'ai';
+export interface TranscriptMessage {
+  role: TranscriptRole;
+  message: string;
+}
+interface ConversationDetailsResponse {
+  transcript?: TranscriptMessage[] | string | null;
+}
+interface RawConversation {
   id?: string;
   conversation_id?: string;
-  date?: string | number; // epoch seconds (server)
+  date?: string | number;
   duration?: number;
   call_duration_secs?: number;
   messages?: number;
   message_count?: number;
   evaluation?: string;
   evaluation_result?: string;
-};
+}
 
-type ListConversationsResponse = {
-  conversations?: RawConversation[];
-};
-
-type TranscriptMessage = {
-  role: string; // 'user' | 'assistant' | 'ai' | etc.
-  message: string;
-};
-
-type ConversationDetailsResponse =
-  | { transcript?: TranscriptMessage[] | string | null }
-  | Record<string, unknown>;
+// Type guard so TS knows it's our message array (not any[])
+function isTranscriptArray(val: unknown): val is TranscriptMessage[] {
+  return (
+    Array.isArray(val) &&
+    val.every(
+      (m) =>
+        m &&
+        typeof m === 'object' &&
+        'message' in (m as Record<string, unknown>) &&
+        typeof (m as Record<string, unknown>).message === 'string'
+    )
+  );
+}
 
 export function ConversationsTable(): React.JSX.Element {
-  // table data
+  // list + paging lives here now
   const [rows, setRows] = React.useState<ConversationRow[]>([]);
-  const [loadingList, setLoadingList] = React.useState<boolean>(true);
-  const [listError, setListError] = React.useState<string | null>(null);
+  const [page, setPage] = React.useState(0);
+  const [rowsPerPage, setRowsPerPage] = React.useState(10);
+  const [loadingList, setLoadingList] = React.useState(true);
 
-  // pagination
-  const [page, setPage] = React.useState<number>(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState<number>(10);
-
-  // dialog + details
+  // dialog state
   const [selectedRow, setSelectedRow] = React.useState<ConversationRow | null>(null);
-  const [open, setOpen] = React.useState<boolean>(false);
+  const [open, setOpen] = React.useState(false);
   const [audioUrl, setAudioUrl] = React.useState<string | null>(null);
-  const [transcript, setTranscript] = React.useState<TranscriptMessage[] | string | null>(null);
-  const [loadingDetails, setLoadingDetails] = React.useState<boolean>(false);
+  const [transcript, setTranscript] = React.useState<string | TranscriptMessage[] | null>(null);
+  const [loadingDetail, setLoadingDetail] = React.useState(false);
 
-  // Fetch conversations list (last 30 days) on mount
+  // fetch conversations (last 30 days)
   React.useEffect(() => {
-    const load = async (): Promise<void> => {
-      setLoadingList(true);
-      setListError(null);
+    const fetchConversations = async () => {
       try {
         const now = Math.floor(Date.now() / 1000);
-        const start = now - 30 * 24 * 60 * 60;
+        const oneMonthAgo = now - 30 * 24 * 60 * 60;
 
-        const res = await fetch(`/.netlify/functions/listConversations?start=${start}&end=${now}`);
-        const data: ListConversationsResponse = await res.json();
+        const res = await fetch(`/.netlify/functions/listConversations?start=${oneMonthAgo}&end=${now}`);
+        const data = await res.json();
 
-        const formatted: ConversationRow[] = (data.conversations ?? []).map((c) => ({
+        const formatted: ConversationRow[] = (data.conversations as RawConversation[]).map((c) => ({
           id: c.id || c.conversation_id || 'unknown',
           date: c.date
-            ? formatDate(Number(c.date))
+            ? new Date(Number(c.date) * 1000).toLocaleString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })
             : 'Invalid Date',
           duration: formatDuration(c.duration ?? c.call_duration_secs ?? 0),
           messages: c.messages ?? c.message_count ?? 0,
@@ -94,92 +105,65 @@ export function ConversationsTable(): React.JSX.Element {
         setRows(formatted);
       } catch (error) {
         console.error('Failed to load conversations:', error);
-        setListError('Failed to load conversations.');
       } finally {
         setLoadingList(false);
       }
     };
 
-    load();
+    fetchConversations();
   }, []);
 
-  const handleRowClick = async (row: ConversationRow): Promise<void> => {
-    setSelectedRow(row);
-    setOpen(true);
-    setLoadingDetails(true);
-    setTranscript(null);
-    setAudioUrl(null);
-
-    try {
-      // 1) Conversation details (transcript, etc.)
-      const detailRes = await fetch(`/.netlify/functions/getConversationDetails?id=${row.id}`);
-      const detailData: ConversationDetailsResponse = await detailRes.json();
-
-      let nextTranscript: string | TranscriptMessage[] | null = null;
-      const raw = detailData.transcript;
-
-      if (typeof raw === 'string') {
-        nextTranscript = raw;
-      } else if (Array.isArray(raw)) {
-        // coerce array items into TranscriptMessage shape
-        nextTranscript = raw
-          .filter((m): m is { role: unknown; message: unknown } => !!m && typeof m === 'object')
-          .map((m: any) => ({
-            role: String(m.role ?? 'assistant'),
-            message: String(m.message ?? ''),
-          }));
-      }
-
-      setTranscript(nextTranscript ?? 'No transcript available.');
-
-      // 2) Audio blob
-      const audioRes = await fetch(`/.netlify/functions/getAudioBlob?id=${row.id}`);
-      if (audioRes.ok) {
-        const audioBlob = await audioRes.blob();
-        const objectUrl = URL.createObjectURL(audioBlob);
-        setAudioUrl(objectUrl);
-      }
-    } catch (error) {
-      console.error('Error loading conversation details:', error);
-      setTranscript('Failed to load conversation details.');
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
-
-  const handleClose = (): void => {
-    setOpen(false);
-    setSelectedRow(null);
-    if (audioUrl) URL.revokeObjectURL(audioUrl);
-    setAudioUrl(null);
-    setTranscript(null);
-  };
-
-  const handlePageChange = (_: unknown, newPage: number): void => setPage(newPage);
-  const handleRowsPerPageChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+  const handlePageChange = (_: unknown, newPage: number) => setPage(newPage);
+  const handleRowsPerPageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(Number.parseInt(event.target.value, 10));
     setPage(0);
   };
 
   const paginatedRows = rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  // Loading / error states for list
+  const handleRowClick = async (row: ConversationRow) => {
+    setSelectedRow(row);
+    setOpen(true);
+    setLoadingDetail(true);
+
+    try {
+      // Get transcript & metadata
+      const detailRes = await fetch(`/.netlify/functions/getConversationDetails?id=${row.id}`);
+      const detailData: ConversationDetailsResponse = await detailRes.json();
+
+      const t = detailData?.transcript ?? null;
+      if (typeof t === 'string' || t === null || isTranscriptArray(t)) {
+        setTranscript(t ?? 'No transcript available.');
+      } else {
+        setTranscript('No transcript available.');
+      }
+
+      // Fetch audio as blob
+      const audioRes = await fetch(`/.netlify/functions/getAudioBlob?id=${row.id}`);
+      const audioBlob = await audioRes.blob();
+      const audioObjectUrl = URL.createObjectURL(audioBlob);
+      setAudioUrl(audioObjectUrl);
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+      setTranscript('Failed to load conversation details.');
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    setSelectedRow(null);
+    setAudioUrl(null);
+    setTranscript(null);
+  };
+
   if (loadingList) {
     return (
       <Card sx={{ p: 4, textAlign: 'center' }}>
         <CircularProgress />
         <Typography variant="body2" sx={{ mt: 2 }}>
           Loading conversations...
-        </Typography>
-      </Card>
-    );
-  }
-
-  if (listError) {
-    return (
-      <Card sx={{ p: 4 }}>
-        <Typography variant="body2" color="error">
-          {listError}
         </Typography>
       </Card>
     );
@@ -200,12 +184,7 @@ export function ConversationsTable(): React.JSX.Element {
             </TableHead>
             <TableBody>
               {paginatedRows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  hover
-                  onClick={() => handleRowClick(row)}
-                  sx={{ cursor: 'pointer' }}
-                >
+                <TableRow key={row.id} hover onClick={() => handleRowClick(row)} sx={{ cursor: 'pointer' }}>
                   <TableCell align="center">
                     <Typography variant="body2">{row.date}</Typography>
                   </TableCell>
@@ -259,24 +238,24 @@ export function ConversationsTable(): React.JSX.Element {
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>Conversation Details</DialogTitle>
         <DialogContent dividers>
-          {loadingDetails ? (
+          {loadingDetail ? (
             <CircularProgress />
           ) : (
             <>
-              {selectedRow?.date ? (
+              {selectedRow?.date && (
                 <Typography variant="caption" color="textSecondary" sx={{ mb: 1, display: 'block' }}>
                   {selectedRow.date}
                 </Typography>
-              ) : null}
+              )}
 
-              {audioUrl ? (
+              {audioUrl && (
                 <Box mb={2}>
                   <audio controls style={{ width: '100%' }}>
                     <source src={audioUrl} type="audio/mpeg" />
                     Your browser does not support the audio element.
                   </audio>
                 </Box>
-              ) : null}
+              )}
 
               <Divider variant="middle" flexItem sx={{ mb: 2 }} />
 
@@ -295,7 +274,13 @@ export function ConversationsTable(): React.JSX.Element {
                   px: 1,
                 }}
               >
-                {Array.isArray(transcript) ? (
+                {typeof transcript === 'string' && (
+                  <Typography variant="body2" color="text.primary">
+                    {transcript}
+                  </Typography>
+                )}
+
+                {isTranscriptArray(transcript) &&
                   transcript.map((msg, index) => (
                     <Box
                       key={index}
@@ -316,10 +301,11 @@ export function ConversationsTable(): React.JSX.Element {
                         {msg.message}
                       </Typography>
                     </Box>
-                  ))
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    {typeof transcript === 'string' ? transcript : 'No transcript available.'}
+                  ))}
+
+                {!transcript && (
+                  <Typography variant="body2" color="error">
+                    No transcript available.
                   </Typography>
                 )}
               </Box>
@@ -331,26 +317,14 @@ export function ConversationsTable(): React.JSX.Element {
   );
 }
 
-
-function formatDate(epochSeconds: number): string {
-  // Client-side formatting only (this file is a Client Component)
-  return new Date(epochSeconds * 1000).toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
+// helpers
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
-
 function normalizeEvaluation(value: string): 'Successful' | 'Failed' | 'Pending' {
-  const val = value?.toLowerCase?.() ?? '';
+  const val = value.toLowerCase();
   if (val === 'success' || val === 'successful') return 'Successful';
   if (val === 'fail' || val === 'failed') return 'Failed';
   return 'Pending';

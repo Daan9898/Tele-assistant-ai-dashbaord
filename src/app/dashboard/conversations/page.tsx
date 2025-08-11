@@ -4,7 +4,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
 import { config } from '@/config';
-import { ConversationsTable } from '@/components/dashboard/conversations/conversations-table';
+import { ConversationsTable, type ConversationRow } from '@/components/dashboard/conversations/conversations-table';
 
 export const metadata = { title: `Conversations | Dashboard | ${config.site.name}` } satisfies Metadata;
 
