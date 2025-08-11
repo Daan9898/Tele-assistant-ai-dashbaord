@@ -25,7 +25,7 @@ export interface MobileNavProps {
   items?: NavItemConfig[];
 }
 
-export function MobileNav({ open, onClose }: MobileNavProps): React.JSX.Element {
+export function MobileNav({ open, onClose, items = navItems }: MobileNavProps): React.JSX.Element {
   const pathname = usePathname();
 
   return (
@@ -57,13 +57,13 @@ export function MobileNav({ open, onClose }: MobileNavProps): React.JSX.Element 
       open={open}
     >
       <Stack spacing={2} sx={{ p: 3 }}>
-        <Box component={RouterLink} href={paths.home} sx={{ display: 'inline-flex' }}>
+        <Box component={RouterLink} href={paths.home} sx={{ display: 'inline-flex' }} onClick={onClose}>
           <Logo color="light" height={32} width={122} />
         </Box>
       </Stack>
       <Divider sx={{ borderColor: 'var(--mui-palette-neutral-700)' }} />
       <Box component="nav" sx={{ flex: '1 1 auto', p: '12px' }}>
-        {renderNavItems({ pathname, items: navItems })}
+        {renderNavItems({ pathname, items, onClose })}
       </Box>
       <Divider sx={{ borderColor: 'var(--mui-palette-neutral-700)' }} />
       <Stack spacing={2} sx={{ p: '12px' }}>
@@ -76,12 +76,7 @@ export function MobileNav({ open, onClose }: MobileNavProps): React.JSX.Element 
           </Typography>
         </div>
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          <Box
-            component="img"
-            alt="Pro version"
-            src="/assets/devias-kit-pro.png"
-            sx={{ height: 'auto', width: '160px' }}
-          />
+          <Box component="img" alt="Pro version" src="/assets/devias-kit-pro.png" sx={{ height: 'auto', width: '160px' }} />
         </Box>
         <Button
           component="a"
@@ -99,15 +94,16 @@ export function MobileNav({ open, onClose }: MobileNavProps): React.JSX.Element 
   );
 }
 
-function renderNavItems({ items = [], pathname }: { items?: NavItemConfig[]; pathname: string }): React.JSX.Element {
-  const children = items.reduce((acc: React.ReactNode[], curr: NavItemConfig): React.ReactNode[] => {
-    const { key, ...item } = curr;
-
-    acc.push(<NavItem key={key} pathname={pathname} {...item} />);
-
-    return acc;
-  }, []);
-
+function renderNavItems({
+  items = [],
+  pathname,
+  onClose,
+}: {
+  items?: NavItemConfig[];
+  pathname: string;
+  onClose?: () => void;
+}): React.JSX.Element {
+  const children = items.map(({ key, ...item }) => <NavItem key={key} pathname={pathname} onClose={onClose} {...item} />);
   return (
     <Stack component="ul" spacing={1} sx={{ listStyle: 'none', m: 0, p: 0 }}>
       {children}
@@ -117,33 +113,35 @@ function renderNavItems({ items = [], pathname }: { items?: NavItemConfig[]; pat
 
 interface NavItemProps extends Omit<NavItemConfig, 'items'> {
   pathname: string;
+  onClose?: () => void;
 }
 
-function NavItem({ disabled, external, href, icon, matcher, pathname, title }: NavItemProps): React.JSX.Element {
+function NavItem({ disabled, external, href, icon, matcher, pathname, title, onClose }: NavItemProps): React.JSX.Element {
   const active = isNavItemActive({ disabled, external, href, matcher, pathname });
   const Icon = icon ? navIcons[icon] : null;
+
+  const commonProps = href
+    ? {
+        component: external ? 'a' : RouterLink,
+        href,
+        target: external ? '_blank' : undefined,
+        rel: external ? 'noreferrer' : undefined,
+        onClick: onClose, // 👈 close drawer when navigating
+      }
+    : { role: 'button', onClick: onClose };
 
   return (
     <li>
       <Box
-        {...(href
-          ? {
-              component: external ? 'a' : RouterLink,
-              href,
-              target: external ? '_blank' : undefined,
-              rel: external ? 'noreferrer' : undefined,
-            }
-          : { role: 'button' })}
+        {...commonProps}
         sx={{
           alignItems: 'center',
           borderRadius: 1,
           color: 'var(--NavItem-color)',
           cursor: 'pointer',
           display: 'flex',
-          flex: '0 0 auto',
           gap: 1,
           p: '6px 16px',
-          position: 'relative',
           textDecoration: 'none',
           whiteSpace: 'nowrap',
           ...(disabled && {
@@ -164,10 +162,7 @@ function NavItem({ disabled, external, href, icon, matcher, pathname, title }: N
           ) : null}
         </Box>
         <Box sx={{ flex: '1 1 auto' }}>
-          <Typography
-            component="span"
-            sx={{ color: 'inherit', fontSize: '0.875rem', fontWeight: 500, lineHeight: '28px' }}
-          >
+          <Typography component="span" sx={{ color: 'inherit', fontSize: '0.875rem', fontWeight: 500, lineHeight: '28px' }}>
             {title}
           </Typography>
         </Box>
