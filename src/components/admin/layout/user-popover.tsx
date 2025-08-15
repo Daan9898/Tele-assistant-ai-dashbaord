@@ -32,7 +32,7 @@ export function UserPopover({
   anchorEl,
   onClose,
   open,
-  scope = 'dashboard',
+  scope = 'admin',
 }: UserPopoverProps): React.JSX.Element {
   const { checkSession } = useUser();
   const router = useRouter();

@@ -1,20 +1,25 @@
 'use client';
 
-import type { User } from '@/types/user';
+import type { User as AppUser } from '@/types/user';
+import { createClient } from '@supabase/supabase-js';
 
-function generateToken(): string {
-  const arr = new Uint8Array(12);
-  globalThis.crypto.getRandomValues(arr);
-  return Array.from(arr, (v) => v.toString(16).padStart(2, '0')).join('');
+function supabaseBrowser() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: true, autoRefreshToken: true } }
+  );
 }
 
-const user = {
-  id: 'USR-000',
-  avatar: '/assets/avatar.png',
-  firstName: 'Sofia',
-  lastName: 'Rivers',
-  email: 'sofia@devias.io',
-} satisfies User;
+function toAppUser(u: { id: string; email?: string | null }): AppUser {
+  return {
+    id: u.id,
+    email: u.email ?? '',
+    firstName: '',            // you can store real names later
+    lastName: '',
+    avatar: '/assets/avatar.png',
+  };
+}
 
 export interface SignUpParams {
   firstName: string;
@@ -22,76 +27,60 @@ export interface SignUpParams {
   email: string;
   password: string;
 }
-
-export interface SignInWithOAuthParams {
-  provider: 'google' | 'discord';
-}
-
-export interface SignInWithPasswordParams {
-  email: string;
-  password: string;
-}
-
-export interface ResetPasswordParams {
-  email: string;
-}
+export interface SignInWithOAuthParams { provider: 'google' | 'discord'; }
+export interface SignInWithPasswordParams { email: string; password: string; }
+export interface ResetPasswordParams { email: string; }
 
 class AuthClient {
-  async signUp(_: SignUpParams): Promise<{ error?: string }> {
-    // Make API request
-
-    // We do not handle the API, so we'll just generate a token and store it in localStorage.
-    const token = generateToken();
-    localStorage.setItem('custom-auth-token', token);
-
-    return {};
+  async signUp({ email, password }: SignUpParams): Promise<{ error?: string }> {
+    const supabase = supabaseBrowser();
+    const { error } = await supabase.auth.signUp({
+      email, password,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    });
+    return error ? { error: error.message } : {};
   }
 
-  async signInWithOAuth(_: SignInWithOAuthParams): Promise<{ error?: string }> {
-    return { error: 'Social authentication not implemented' };
+  async signInWithOAuth({ provider }: SignInWithOAuthParams): Promise<{ error?: string }> {
+    const supabase = supabaseBrowser();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider, options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    return error ? { error: error.message } : {};
   }
 
-  async signInWithPassword(params: SignInWithPasswordParams): Promise<{ error?: string }> {
-    const { email, password } = params;
-
-    // Make API request
-
-    // We do not handle the API, so we'll check if the credentials match with the hardcoded ones.
-    if (email !== 'sofia@devias.io' || password !== 'Secret1') {
-      return { error: 'Invalid credentials' };
-    }
-
-    const token = generateToken();
-    localStorage.setItem('custom-auth-token', token);
-
-    return {};
+  async signInWithPassword({ email, password }: SignInWithPasswordParams): Promise<{ error?: string }> {
+    const supabase = supabaseBrowser();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return error ? { error: error.message } : {};
   }
 
-  async resetPassword(_: ResetPasswordParams): Promise<{ error?: string }> {
-    return { error: 'Password reset not implemented' };
+  async resetPassword({ email }: ResetPasswordParams): Promise<{ error?: string }> {
+    const supabase = supabaseBrowser();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset`,
+    });
+    return error ? { error: error.message } : {};
   }
 
-  async updatePassword(_: ResetPasswordParams): Promise<{ error?: string }> {
-    return { error: 'Update reset not implemented' };
+  async updatePassword({ password }: { password: string }): Promise<{ error?: string }> {
+    const supabase = supabaseBrowser();
+    const { error } = await supabase.auth.updateUser({ password });
+    return error ? { error: error.message } : {};
   }
 
-  async getUser(): Promise<{ data?: User | null; error?: string }> {
-    // Make API request
-
-    // We do not handle the API, so just check if we have a token in localStorage.
-    const token = localStorage.getItem('custom-auth-token');
-
-    if (!token) {
-      return { data: null };
-    }
-
-    return { data: user };
+  async getUser(): Promise<{ data?: AppUser | null; error?: string }> {
+    const supabase = supabaseBrowser();
+    const { data, error } = await supabase.auth.getUser();
+    if (error) return { error: error.message };
+    if (!data.user) return { data: null };
+    return { data: toAppUser({ id: data.user.id, email: data.user.email }) };
   }
 
   async signOut(): Promise<{ error?: string }> {
-    localStorage.removeItem('custom-auth-token');
-
-    return {};
+    const supabase = supabaseBrowser();
+    const { error } = await supabase.auth.signOut();
+    return error ? { error: error.message } : {};
   }
 }
 

@@ -1,14 +1,12 @@
-import * as React from 'react';
+'use client';
 
-import type { UserContextValue } from '@/contexts/user-context';
-import { UserContext } from '@/contexts/user-context';
+import * as React from 'react';
+import { UserContext, type UserContextValue } from '@/contexts/user-context';
 
 export function useUser(): UserContextValue {
   const context = React.useContext(UserContext);
-
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useUser must be used within a UserProvider');
   }
-
   return context;
 }

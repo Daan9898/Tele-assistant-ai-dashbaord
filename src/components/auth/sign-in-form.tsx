@@ -20,7 +20,7 @@ import { z as zod } from 'zod';
 
 import { paths } from '@/paths';
 import { authClient } from '@/lib/auth/client';
-import { useUser } from '@/hooks/use-user';
+import { supabaseBrowser } from '@/lib/supabase/client';
 
 const schema = zod.object({
   email: zod.string().min(1, { message: 'Email is required' }).email(),
@@ -29,15 +29,12 @@ const schema = zod.object({
 
 type Values = zod.infer<typeof schema>;
 
-const defaultValues = { email: 'sofia@devias.io', password: 'Secret1' } satisfies Values;
+// keep your demo defaults
+const defaultValues: Values = { email: 'daansmid@icloud.com', password: 'Test1234' };
 
 export function SignInForm(): React.JSX.Element {
   const router = useRouter();
-
-  const { checkSession } = useUser();
-
-  const [showPassword, setShowPassword] = React.useState<boolean>();
-
+  const [showPassword, setShowPassword] = React.useState<boolean>(false);
   const [isPending, setIsPending] = React.useState<boolean>(false);
 
   const {
@@ -47,39 +44,80 @@ export function SignInForm(): React.JSX.Element {
     formState: { errors },
   } = useForm<Values>({ defaultValues, resolver: zodResolver(schema) });
 
-  const onSubmit = React.useCallback(
-    async (values: Values): Promise<void> => {
-      setIsPending(true);
+const onSubmit = React.useCallback(
+  async (values: Values): Promise<void> => {
+    setIsPending(true);
 
-      const { error } = await authClient.signInWithPassword(values);
+    try {
+      const supa = supabaseBrowser();
+
+      // 1) Sign in and use returned session/user
+      const { data, error } = await supa.auth.signInWithPassword({
+        email: values.email,
+        password: values.password,
+      });
 
       if (error) {
-        setError('root', { type: 'server', message: error });
-        setIsPending(false);
+        console.error('[client] signIn error', error);
+        setError('root', { type: 'server', message: error.message });
         return;
       }
 
-      // Refresh the auth state
-      await checkSession?.();
+      // Prefer user from signIn result; fallback to getSession()
+      let userId: string | null =
+        data?.user?.id ?? data?.session?.user?.id ?? null;
 
-      // UserProvider, for this case, will not refresh the router
-      // After refresh, GuestGuard will handle the redirect
-      router.refresh();
-    },
-    [checkSession, router, setError]
-  );
+      if (!userId) {
+        const { data: sess2 } = await supa.auth.getSession();
+        userId = sess2?.session?.user?.id ?? null;
+        console.log('[client] fallback getSession uid', {
+          userId,
+          hasSession: !!sess2?.session,
+        });
+      }
+
+      if (!userId) {
+        console.warn('[client] still no uid after fallback, routing /dashboard');
+        router.replace('/dashboard');
+        return;
+      }
+
+      // 2) Role check (now userId is narrowed to string)
+      const { data: profile, error: profErr } = await supa
+        .from('profiles')
+        .select('is_platform_admin')
+        .eq('user_id', userId) // ✅ userId is string here
+        .single();
+
+      if (profErr) console.error('[client] profile load error', profErr);
+
+      const isAdmin = !!profile?.is_platform_admin;
+      console.log('[client] post-login role', { userId, isAdmin });
+
+      router.replace(isAdmin ? '/admin' : '/dashboard');
+    } finally {
+      setIsPending(false);
+    }
+  },
+  [router, setError]
+);
+
+
 
   return (
     <Stack spacing={4}>
       <Stack spacing={1}>
         <Typography variant="h4">Sign in</Typography>
+        {/* Keep or remove this block if you add self-serve signup later
         <Typography color="text.secondary" variant="body2">
           Don&apos;t have an account?{' '}
           <Link component={RouterLink} href={paths.auth.signUp} underline="hover" variant="subtitle2">
             Sign up
           </Link>
         </Typography>
+        */}
       </Stack>
+
       <form onSubmit={handleSubmit(onSubmit)}>
         <Stack spacing={2}>
           <Controller
@@ -93,6 +131,7 @@ export function SignInForm(): React.JSX.Element {
               </FormControl>
             )}
           />
+
           <Controller
             control={control}
             name="password"
@@ -106,17 +145,13 @@ export function SignInForm(): React.JSX.Element {
                       <EyeIcon
                         cursor="pointer"
                         fontSize="var(--icon-fontSize-md)"
-                        onClick={(): void => {
-                          setShowPassword(false);
-                        }}
+                        onClick={() => setShowPassword(false)}
                       />
                     ) : (
                       <EyeSlashIcon
                         cursor="pointer"
                         fontSize="var(--icon-fontSize-md)"
-                        onClick={(): void => {
-                          setShowPassword(true);
-                        }}
+                        onClick={() => setShowPassword(true)}
                       />
                     )
                   }
@@ -127,25 +162,29 @@ export function SignInForm(): React.JSX.Element {
               </FormControl>
             )}
           />
+
           <div>
             <Link component={RouterLink} href={paths.auth.resetPassword} variant="subtitle2">
               Forgot password?
             </Link>
           </div>
+
           {errors.root ? <Alert color="error">{errors.root.message}</Alert> : null}
+
           <Button disabled={isPending} type="submit" variant="contained">
-            Sign in
+            {isPending ? 'Signing in…' : 'Sign in'}
           </Button>
         </Stack>
       </form>
+
       <Alert color="warning">
         Use{' '}
         <Typography component="span" sx={{ fontWeight: 700 }} variant="inherit">
-          sofia@devias.io
+          daansmid@icloud.com
         </Typography>{' '}
         with password{' '}
         <Typography component="span" sx={{ fontWeight: 700 }} variant="inherit">
-          Secret1
+          Test1234
         </Typography>
       </Alert>
     </Stack>

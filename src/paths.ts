@@ -8,5 +8,12 @@ export const paths = {
     billing: '/dashboard/billing',
     settings: '/dashboard/settings',
   },
+  admin: {
+    overview: '/admin',
+    account: '/admin/account',
+    conversations: '/admin/conversations',
+    billing: '/admin/billing',
+    settings: '/admin/settings',
+  },
   errors: { notFound: '/errors/not-found' },
 } as const;

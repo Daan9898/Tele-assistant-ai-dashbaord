@@ -1,57 +1,70 @@
 'use client';
 
 import * as React from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-import type { User } from '@/types/user';
-import { authClient } from '@/lib/auth/client';
-import { logger } from '@/lib/default-logger';
-
-export interface UserContextValue {
-  user: User | null;
-  error: string | null;
+export type UserContextValue = {
+  user: { id: string; email?: string | null } | null;
   isLoading: boolean;
+  error?: string;
   checkSession?: () => Promise<void>;
-}
+};
 
 export const UserContext = React.createContext<UserContextValue | undefined>(undefined);
 
-export interface UserProviderProps {
-  children: React.ReactNode;
+function supabaseBrowser() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: true, autoRefreshToken: true } }
+  );
 }
 
-export function UserProvider({ children }: UserProviderProps): React.JSX.Element {
-  const [state, setState] = React.useState<{ user: User | null; error: string | null; isLoading: boolean }>({
-    user: null,
-    error: null,
-    isLoading: true,
-  });
+export function UserProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = React.useState<UserContextValue['user']>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | undefined>(undefined);
 
-  const checkSession = React.useCallback(async (): Promise<void> => {
-    try {
-      const { data, error } = await authClient.getUser();
+  const supabase = React.useMemo(() => supabaseBrowser(), []);
 
-      if (error) {
-        logger.error(error);
-        setState((prev) => ({ ...prev, user: null, error: 'Something went wrong', isLoading: false }));
-        return;
-      }
+  const refresh = React.useCallback(async () => {
+    setIsLoading(true);
+    setError(undefined);
 
-      setState((prev) => ({ ...prev, user: data ?? null, error: null, isLoading: false }));
-    } catch (error) {
-      logger.error(error);
-      setState((prev) => ({ ...prev, user: null, error: 'Something went wrong', isLoading: false }));
+    // 1) Read session first — "no session" is NOT an error
+    const { data: sessData, error: sessErr } = await supabase.auth.getSession();
+    if (sessErr) {
+      setError(sessErr.message);
+      setUser(null);
+      setIsLoading(false);
+      return;
     }
-  }, []);
+
+    const session = sessData?.session ?? null;
+    if (!session) {
+      // Logged out: this is fine; don't show an error
+      setUser(null);
+      setIsLoading(false);
+      return;
+    }
+
+    // 2) We have a session → use it (no need to call getUser)
+    const u = session.user;
+    setUser(u ? { id: u.id, email: u.email } : null);
+    setIsLoading(false);
+  }, [supabase]);
 
   React.useEffect(() => {
-    checkSession().catch((error) => {
-      logger.error(error);
-      // noop
+    // initial load
+    refresh();
+
+    // subscribe to auth changes
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ? { id: session.user.id, email: session.user.email } : null);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Expected
-  }, []);
+    return () => sub.subscription.unsubscribe();
+  }, [refresh, supabase]);
 
-  return <UserContext.Provider value={{ ...state, checkSession }}>{children}</UserContext.Provider>;
+  const value: UserContextValue = { user, isLoading, error, checkSession: refresh };
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
-
-export const UserConsumer = UserContext.Consumer;
